@@ -1,10 +1,11 @@
+require('dotenv').config();
+
 const { Client, Intents } = require('discord.js');
 const {
   joinVoiceChannel,
   createAudioPlayer,
   createAudioResource,
 } = require('@discordjs/voice');
-const { token } = require('./config.json');
 const ytdl = require('ytdl-core');
 const yts = require('yt-search');
 
@@ -119,4 +120,4 @@ client.on('messageCreate', async message => {
   }
 });
 
-client.login(token);
+client.login(process.env.TOKEN);
