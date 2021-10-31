@@ -1,49 +1,17 @@
 require('dotenv').config();
-
-const { Client, Intents } = require('discord.js');
 const {
+  AudioPlayerStatus,
   joinVoiceChannel,
   createAudioPlayer,
   createAudioResource,
 } = require('@discordjs/voice');
+const { Client, Intents } = require('discord.js');
+const { prefix } = require('../config.json');
+const { getHelper } = require('./utils/getHelper');
+const { getSong } = require('./utils/getSong');
 const ytdl = require('ytdl-core');
-const yts = require('yt-search');
 
-// create client instance
-
-const COMMANDS = ['play', 'stop'];
-
-const connectChannel = channel => {
-  const VoiceConnection = joinVoiceChannel({
-    channelId: channel.id,
-    guildId: channel.guild.id,
-    adapterCreator: channel.guild.voiceAdapterCreator,
-  });
-
-  return VoiceConnection;
-};
-
-const audioResource = songUrl => {
-  const resource = createAudioResource(
-    ytdl(songUrl, {
-      quality: 'highestaudio',
-    }),
-    {
-      inlineVolume: true,
-    }
-  );
-
-  resource.volume.setVolume(1);
-
-  return resource;
-};
-
-const audioPlayer = connection => {
-  const player = createAudioPlayer();
-  connection.subscribe(player);
-
-  return player;
-};
+const subscription = new Map();
 
 const client = new Client({
   intents: [
@@ -53,70 +21,80 @@ const client = new Client({
   ],
 });
 
-const getSongURL = async songName => {
-  const response = await yts(songName);
+const COMMANDS = ['play', 'stop'];
 
-  if (response.videos.length > 0) {
-    return response.videos[0].url;
-  } else {
-    return null;
-  }
-};
+const audioPlayer = createAudioPlayer();
 
-// Run bot
-
-client.once('ready', () => {
-  console.log('Bot is ready!');
-});
+client.on('ready', () => console.log('Klee is ready!'));
 
 client.on('messageCreate', async message => {
-  const args = message.content.trim().slice(1).split(/ +/g);
-  const command = args[0].toLowerCase();
-  const songName = args.slice(1).join(' ');
-
-  if (message.author.id === '904069463412965408') {
+  if (message.author.bot || message.content.startsWith(prefix)) {
     setTimeout(async () => {
       await message.delete();
-    }, 1000);
+    }, 1500);
   }
 
-  if (!message.content.startsWith('~') || message.author.bot) return;
+  if (
+    !message.content.startsWith(prefix) ||
+    message.author.bot ||
+    !message.guild
+  ) {
+    return;
+  }
 
-  const execute = async message => {
-    const voiceChannel = await message.member.voice.channel;
+  let channel = message.member.voice.channel;
 
-    if (!voiceChannel) {
-      await message.reply('You must be in voice channel.');
-    } else {
-      const url = await getSongURL(songName);
-
-      if (!url) {
-        await message.reply(`Error. Your song is not available on Youtube!`);
-        return;
-      } else {
-        const connection = connectChannel(voiceChannel);
-        const resource = audioResource(url);
-        const player = audioPlayer(connection);
-        switch (command) {
-          case 'play':
-            player.play(resource);
-            await message.reply(`Playing ${url}`);
-            break;
-          case 'stop':
-            connection.destroy();
-            break;
-          default:
-            null;
-            break;
-        }
-      }
-    }
-  };
+  const { command, song } = getHelper(message.content);
 
   if (!COMMANDS.includes(command)) {
     await message.reply('Command is not valid!');
-  } else {
-    execute(message);
+    return;
+  }
+
+  if (command === 'play') {
+    if (channel) {
+      if (audioPlayer.state.status !== AudioPlayerStatus.Idle) {
+        await message.reply('Queue feature is not available!');
+        return;
+      }
+
+      if (!message.guild.me.voice.channel) {
+        const voiceConnection = joinVoiceChannel({
+          channelId: channel.id,
+          guildId: channel.guild.id,
+          adapterCreator: channel.guild.voiceAdapterCreator,
+        });
+
+        voiceConnection.subscribe(audioPlayer);
+
+        subscription.set('active', voiceConnection);
+      }
+
+      const songURL = await getSong(song);
+
+      const resource = createAudioResource(
+        ytdl(songURL, {
+          quality: 'highestaudio',
+        }),
+        {
+          inlineVolume: true,
+        }
+      );
+      audioPlayer.play(resource);
+      await message.channel.send(`Playing ${songURL}`);
+    } else {
+      await message.channel.send('Vào rồi mở nhạc!');
+      return;
+    }
+  }
+
+  if (command === 'stop') {
+    audioPlayer.stop();
+    await message.reply('Stopped song!');
+  }
+
+  if (command === 'leave') {
+    subscription.get('active').destroy();
   }
 });
 
