@@ -6,9 +6,9 @@ const {
   createAudioResource,
 } = require('@discordjs/voice');
 const { Client, Intents } = require('discord.js');
-const { prefix } = require('../config.json');
-const { getHelper } = require('./utils/getHelper');
-const { getSong } = require('./utils/getSong');
+const { prefix } = require('./config.json');
+const { getHelper } = require('./src/utils/getHelper');
+const { getSong } = require('./src/utils/getSong');
 const ytdl = require('ytdl-core');
 
 const subscription = new Map();
