@@ -20,9 +20,6 @@ const setSubscription = channel => {
     subscription.set('voice', voiceConnection);
     subscription.set('channelID', channel.id);
   }
-
-  if (channel.id !== subscription.get('channelID')) {
-  }
 };
 
 module.exports = { subscription, setSubscription, queueList, audioPlayer };
