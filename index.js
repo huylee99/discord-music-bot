@@ -47,6 +47,8 @@ client.on('messageCreate', async message => {
     if (channel) {
       setSubscription(channel);
       play(message, searchTerm);
+    } else {
+      await message.channel.send('Không vào mà đòi mở nhạc, cẹc');
     }
   }
 
