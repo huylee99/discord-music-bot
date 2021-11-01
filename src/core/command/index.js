@@ -30,7 +30,7 @@ const leave = async message => {
 };
 
 const queue = async message => {
-  if (queueList === 0) {
+  if (queueList.length === 0) {
     const { embed } = embedMessage({
       title: 'Queue is empty!',
       description: '',
@@ -62,7 +62,10 @@ const clear = async message => {
 };
 
 const processQueue = async () => {
-  if (queueList === 0 || audioPlayer.state.status !== AudioPlayerStatus.Idle) {
+  if (
+    queueList.length === 0 ||
+    audioPlayer.state.status !== AudioPlayerStatus.Idle
+  ) {
     return;
   }
 
