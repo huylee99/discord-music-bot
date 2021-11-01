@@ -1,17 +1,18 @@
 require('dotenv').config();
-const {
-  AudioPlayerStatus,
-  joinVoiceChannel,
-  createAudioPlayer,
-  createAudioResource,
-} = require('@discordjs/voice');
 const { Client, Intents } = require('discord.js');
 const { prefix } = require('./config.json');
-const { getHelper } = require('./src/utils/getHelper');
-const { getSong } = require('./src/utils/getSong');
-const ytdl = require('ytdl-core');
-
-const subscription = new Map();
+const { getMessage } = require('./src/utils/getMessage');
+const { COMMANDS } = require('./src/constant');
+const {
+  play,
+  stop,
+  leave,
+  queue,
+  skip,
+  clear,
+} = require('./src/core/command/index');
+const { subscription, setSubscription } = require('./src/core/subscription');
+const { clearMessage } = require('./src/utils/clearMessage');
 
 const client = new Client({
   intents: [
@@ -21,19 +22,13 @@ const client = new Client({
   ],
 });
 
-const COMMANDS = ['play', 'stop'];
-
-const audioPlayer = createAudioPlayer();
-
 client.on('ready', () => console.log('Klee is ready!'));
 
 client.on('messageCreate', async message => {
-  if (message.author.bot || message.content.startsWith(prefix)) {
-    setTimeout(async () => {
-      await message.delete();
-    }, 1500);
-  }
+  clearMessage(message, prefix);
+  subscription.set('channel', message.channel);
 
+  const { command, searchTerm } = getMessage(message.content);
   if (
     !message.content.startsWith(prefix) ||
     message.author.bot ||
@@ -42,59 +37,37 @@ client.on('messageCreate', async message => {
     return;
   }
 
-  let channel = message.member.voice.channel;
-
-  const { command, song } = getHelper(message.content);
-
   if (!COMMANDS.includes(command)) {
     await message.reply('Command is not valid!');
     return;
   }
 
   if (command === 'play') {
+    const channel = message.member.voice.channel;
     if (channel) {
-      if (audioPlayer.state.status !== AudioPlayerStatus.Idle) {
-        await message.reply('Queue feature is not available!');
-        return;
-      }
-
-      if (!message.guild.me.voice.channel) {
-        const voiceConnection = joinVoiceChannel({
-          channelId: channel.id,
-          guildId: channel.guild.id,
-          adapterCreator: channel.guild.voiceAdapterCreator,
-        });
-
-        voiceConnection.subscribe(audioPlayer);
-
-        subscription.set('active', voiceConnection);
-      }
-
-      const songURL = await getSong(song);
-
-      const resource = createAudioResource(
-        ytdl(songURL, {
-          quality: 'highestaudio',
-        }),
-        {
-          inlineVolume: true,
-        }
-      );
-      audioPlayer.play(resource);
-      await message.channel.send(`Playing ${songURL}`);
-    } else {
-      await message.channel.send('Vào rồi mở nhạc!');
-      return;
+      setSubscription(channel);
+      play(message, searchTerm);
     }
   }
 
   if (command === 'stop') {
-    audioPlayer.stop();
-    await message.reply('Stopped song!');
+    stop(message);
   }
 
   if (command === 'leave') {
-    subscription.get('active').destroy();
+    leave(message);
+  }
+
+  if (command === 'queue') {
+    queue(message);
+  }
+
+  if (command === 'skip') {
+    skip(message);
+  }
+
+  if (command === 'clear') {
+    clear(message);
   }
 });
 
